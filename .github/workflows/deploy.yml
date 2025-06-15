@@ -2,39 +2,37 @@ name: React CI/CD
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [20.x]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Set up Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: npm install
 
-   
-
-      - name: Build
+      - name: Build project
         run: npm run build
         env:
           CI: true
-         
 
-      - name: Archive Production Artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: build
@@ -42,18 +40,18 @@ jobs:
           retention-days: 1
 
   deploy:
-    name: Deploy
+    name: Deploy to Firebase Hosting
     needs: build
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
 
     steps:
-      - name: Checkout Repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download Artifact
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: build
