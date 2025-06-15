@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Award, Trash2, Code, Users } from 'lucide-react';
 import ConfirmationDialog from '../Common/ConfirmationDialog';
 
@@ -13,28 +13,30 @@ const SkillsForm = ({ data, onChange }) => {
   const [localSkills, setLocalSkills] = useState([]);
 
   // Transform data to handle both old string array format and new object format
-  const skills = Array.isArray(data) 
-    ? data.map((skill, index) => {
-        if (typeof skill === 'string') {
+  const skills = useMemo(() => {
+    const transformedData = Array.isArray(data) 
+      ? data.map((skill, index) => {
+          if (typeof skill === 'string') {
+            return {
+              id: `skill-${index}-${Date.now() + index}`,
+              name: skill,
+              category: 'Technical' // Default for legacy string skills
+            };
+          }
           return {
-            id: `skill-${index}-${Date.now() + index}`,
-            name: skill,
-            category: 'Technical' // Default for legacy string skills
+            ...skill,
+            id: skill.id || `skill-${index}-${Date.now() + index}`,
+            category: skill.category || 'Technical' // Preserve existing category or default
           };
-        }
-        return {
-          ...skill,
-          id: skill.id || `skill-${index}-${Date.now() + index}`,
-          category: skill.category || 'Technical' // Preserve existing category or default
-        };
-      })
-    : (data || []);
-
-  // Update local state when data changes
-  useEffect(() => {
-    console.log('Data prop changed:', data);
-    setLocalSkills(skills);
+        })
+      : (data || []);
+    return transformedData;
   }, [data]);
+
+  // Update local state when the memoized skills array changes
+  useEffect(() => {
+    setLocalSkills(skills);
+  }, [skills]);
 
   // Debug: Log the current data and transformed skills
   console.log('Raw data received:', data);
@@ -123,22 +125,6 @@ const SkillsForm = ({ data, onChange }) => {
       skillId: null,
       skillName: ''
     });
-  };
-
-  // Simplified categories - only Technical and Behavioral
-  const skillCategories = [
-    { value: 'Technical', label: 'Technical Skills & Competencies', icon: Code, color: '#3b82f6' },
-    { value: 'Behavioral', label: 'Behavioral & Transferable Skills', icon: Users, color: '#10b981' }
-  ];
-
-  const getCategoryIcon = (category) => {
-    const categoryData = skillCategories.find(cat => cat.value === category);
-    return categoryData ? categoryData.icon : Award;
-  };
-
-  const getCategoryColor = (category) => {
-    const categoryData = skillCategories.find(cat => cat.value === category);
-    return categoryData ? categoryData.color : '#6b7280';
   };
 
   // Group skills by category for display - use localSkills for rendering

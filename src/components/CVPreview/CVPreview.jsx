@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Mail, Phone, Briefcase, GraduationCap, Award, Languages, Globe, FileText, CreditCard, Star } from 'lucide-react';
+import { Mail, Phone, Briefcase, GraduationCap, Award, Languages, Globe, FileText, CreditCard } from 'lucide-react';
 import './CVPreview.css';
 
 const CVPreview = forwardRef(({ data, versionName }, ref) => {
@@ -73,31 +73,6 @@ const CVPreview = forwardRef(({ data, versionName }, ref) => {
     }, {});
 
     return { keySkills, regularSkills, groupedSkills };
-  };
-
-  // Render skill level stars
-  const renderSkillStars = (level) => {
-    const levelMap = {
-      'Beginner': 1,
-      'Intermediate': 2,
-      'Advanced': 3,
-      'Expert': 4,
-      'Master': 5
-    };
-    
-    const stars = levelMap[level] || 2;
-    
-    return (
-      <div className="cv-skill-stars">
-        {[1, 2, 3, 4, 5].map(star => (
-          <Star
-            key={star}
-            size={10}
-            className={`cv-skill-star ${star <= stars ? 'filled' : 'empty'}`}
-          />
-        ))}
-      </div>
-    );
   };
 
   // Custom Colorful Location Pin Component
@@ -496,15 +471,14 @@ const CVPreview = forwardRef(({ data, versionName }, ref) => {
 
       {/* Simple Skills Section - No Complex Logic */}
       {skills && skills.length > 0 && (() => {
-        const { keySkills, regularSkills, groupedSkills } = processSkills(skills);
+        const { keySkills, regularSkills } = processSkills(skills);
         const hasSkills = keySkills.length > 0 || regularSkills.length > 0;
 
         if (!hasSkills) return null;
 
         // Simple categorization
         const technicalCategories = ['Technical', 'Tools'];
-        const behavioralCategories = ['Professional', 'Leadership', 'Creative', 'Language', 'Other', 'Behavioral'];
-
+        
         const technicalSkills = [];
         const behavioralSkills = [];
 

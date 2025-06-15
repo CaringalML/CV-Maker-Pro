@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import cvService from '../services/cvService';
 import { useAuth } from './useAuth';
@@ -11,31 +11,8 @@ export const useCVData = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  // Load CVs when user authenticates
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadUserCVs();
-    } else {
-      setVersions([]);
-      setCurrentVersionId(null);
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  // Auto-save setup
-  useEffect(() => {
-    if (!currentVersionId || !isAuthenticated) return;
-
-    const currentCV = versions.find(v => v.id === currentVersionId);
-    if (!currentCV) return;
-
-    // Set up auto-save every 30 seconds
-    const cleanup = cvService.setupAutoSave(currentCV, 30000);
-    
-    return cleanup;
-  }, [currentVersionId, versions, isAuthenticated]);
-
-  const loadUserCVs = async () => {
+  // Memoize the loadUserCVs function to safely use it in useEffect
+  const loadUserCVs = useCallback(async () => {
     if (!isAuthenticated) return;
     
     setLoading(true);
@@ -61,7 +38,31 @@ export const useCVData = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]); // Dependency for useCallback
+
+  // Load CVs when user authenticates
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserCVs();
+    } else {
+      setVersions([]);
+      setCurrentVersionId(null);
+      setLoading(false);
+    }
+  }, [isAuthenticated, user, loadUserCVs]); // Added loadUserCVs to dependencies
+
+  // Auto-save setup
+  useEffect(() => {
+    if (!currentVersionId || !isAuthenticated) return;
+
+    const currentCV = versions.find(v => v.id === currentVersionId);
+    if (!currentCV) return;
+
+    // Set up auto-save every 30 seconds
+    const cleanup = cvService.setupAutoSave(currentCV, 30000);
+    
+    return cleanup;
+  }, [currentVersionId, versions, isAuthenticated]);
 
   const saveCV = async (cvData, showToast = true) => {
     if (!isAuthenticated) {
@@ -91,91 +92,91 @@ export const useCVData = () => {
     }
   };
 
-const createNewVersion = async () => {
-  if (!isAuthenticated) {
-    toast.error('Please sign in to create a new CV');
-    return;
-  }
-
-  try {
-    // Get custom name from user
-    const customName = prompt('Enter CV name (e.g., "Software Developer CV", "Marketing Resume"):', 'My CV');
-    
-    if (!customName || customName.trim() === '') {
-      toast.error('CV name is required');
+  const createNewVersion = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to create a new CV');
       return;
     }
 
-    const newCV = cvService.createDefaultCV();
-    // Custom naming: [Custom Name]_v[number]
-    newCV.name = `${customName.trim()}_v1`;
-    
-    await cvService.saveCV(newCV);
-    
-    setVersions(prev => [newCV, ...prev]);
-    setCurrentVersionId(newCV.id);
-    
-    toast.success('New CV created successfully');
-    return newCV;
-  } catch (err) {
-    console.error('Error creating new CV:', err);
-    setError(err.message);
-    toast.error('Failed to create new CV');
-  }
-};
-
-const duplicateVersion = async (versionId) => {
-  if (!isAuthenticated) {
-    toast.error('Please sign in to duplicate CV');
-    return;
-  }
-
-  try {
-    const originalCV = versions.find(v => v.id === versionId);
-    if (!originalCV) {
-      throw new Error('Original CV not found');
-    }
-
-    // Extract base name and increment version
-    const originalName = originalCV.name;
-    let baseName = originalName;
-    let newVersion = 1;
-
-    // Check if the name has version format: "Name_v1"
-    const versionMatch = originalName.match(/^(.+)_v(\d+)$/);
-    if (versionMatch) {
-      baseName = versionMatch[1]; // Extract base name
-      // Find highest version number for this base name
-      const sameBaseVersions = versions.filter(v => v.name.startsWith(baseName + '_v'));
-      const versionNumbers = sameBaseVersions.map(v => {
-        const match = v.name.match(/_v(\d+)$/);
-        return match ? parseInt(match[1]) : 0;
-      });
-      newVersion = Math.max(...versionNumbers, 0) + 1;
-    } else {
-      // If no version format, ask user for new name
-      const customName = prompt('Enter name for duplicated CV:', originalName + ' Copy');
+    try {
+      // Get custom name from user
+      const customName = prompt('Enter CV name (e.g., "Software Developer CV", "Marketing Resume"):', 'My CV');
+      
       if (!customName || customName.trim() === '') {
         toast.error('CV name is required');
         return;
       }
-      baseName = customName.trim();
+
+      const newCV = cvService.createDefaultCV();
+      // Custom naming: [Custom Name]_v[number]
+      newCV.name = `${customName.trim()}_v1`;
+      
+      await cvService.saveCV(newCV);
+      
+      setVersions(prev => [newCV, ...prev]);
+      setCurrentVersionId(newCV.id);
+      
+      toast.success('New CV created successfully');
+      return newCV;
+    } catch (err) {
+      console.error('Error creating new CV:', err);
+      setError(err.message);
+      toast.error('Failed to create new CV');
+    }
+  };
+
+  const duplicateVersion = async (versionId) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to duplicate CV');
+      return;
     }
 
-    const newName = `${baseName}_v${newVersion}`;
-    const duplicatedCV = await cvService.duplicateCV(versionId, newName);
-    
-    setVersions(prev => [duplicatedCV, ...prev]);
-    setCurrentVersionId(duplicatedCV.id);
-    
-    toast.success('CV duplicated successfully');
-    return duplicatedCV;
-  } catch (err) {
-    console.error('Error duplicating CV:', err);
-    setError(err.message);
-    toast.error('Failed to duplicate CV');
-  }
-};
+    try {
+      const originalCV = versions.find(v => v.id === versionId);
+      if (!originalCV) {
+        throw new Error('Original CV not found');
+      }
+
+      // Extract base name and increment version
+      const originalName = originalCV.name;
+      let baseName = originalName;
+      let newVersion = 1;
+
+      // Check if the name has version format: "Name_v1"
+      const versionMatch = originalName.match(/^(.+)_v(\d+)$/);
+      if (versionMatch) {
+        baseName = versionMatch[1]; // Extract base name
+        // Find highest version number for this base name
+        const sameBaseVersions = versions.filter(v => v.name.startsWith(baseName + '_v'));
+        const versionNumbers = sameBaseVersions.map(v => {
+          const match = v.name.match(/_v(\d+)$/);
+          return match ? parseInt(match[1]) : 0;
+        });
+        newVersion = Math.max(...versionNumbers, 0) + 1;
+      } else {
+        // If no version format, ask user for new name
+        const customName = prompt('Enter name for duplicated CV:', originalName + ' Copy');
+        if (!customName || customName.trim() === '') {
+          toast.error('CV name is required');
+          return;
+        }
+        baseName = customName.trim();
+      }
+
+      const newName = `${baseName}_v${newVersion}`;
+      const duplicatedCV = await cvService.duplicateCV(versionId, newName);
+      
+      setVersions(prev => [duplicatedCV, ...prev]);
+      setCurrentVersionId(duplicatedCV.id);
+      
+      toast.success('CV duplicated successfully');
+      return duplicatedCV;
+    } catch (err) {
+      console.error('Error duplicating CV:', err);
+      setError(err.message);
+      toast.error('Failed to duplicate CV');
+    }
+  };
 
   const deleteVersion = async (versionId) => {
     if (!isAuthenticated) {

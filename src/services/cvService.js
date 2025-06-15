@@ -6,7 +6,6 @@ import {
   getDocs, 
   deleteDoc, 
   query, 
-  where, 
   orderBy, 
   serverTimestamp,
   writeBatch,
